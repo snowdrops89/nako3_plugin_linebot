@@ -77,6 +77,25 @@ const PluginLinebot = {
       sys.__v0['WEBサーバ:ONSUCCESS'] = callback
       return sys.__exec('LINEボット起動', [portno, sys])
     }
+  },
+  // @イベント
+  'LINEイベント': { type: 'const', value: '' }, // @らいんいべんと
+  'LINEイベント受信時': { // @webhookにイベントがPOSTされた時 // @らいんいべんとじゅしんしたとき
+    type: 'func',
+    josi: ['を'],
+    fn: function (callback, sys) {
+      sys.__webapp.post('/webhook', line.middleware(config), (req, res) => {
+        res.status(200).end();//「Webhookイベントオブジェクト送信時にタイムアウトが発生しました」のエラー防止用
+        sys.__v0['LINEイベント'] = req.body.events
+        if (sys.__v0['LINEイベント'].length === 0) {
+          console.log('検証イベント受信しました☆'); //疎通確認用
+          return;
+        } else {
+          console.log('イベント受信しました☆{改行}',sys.__v0['LINEイベント']);//Webhookの中身の確認用
+        }
+        callbackServerFunc(callback, req, res, sys)
+      })
+    }
   }
 }
 
