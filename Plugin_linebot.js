@@ -1,21 +1,17 @@
 /******************************************
  * file: Plugin_linebot.js
  * なでしこ３でLINEボットを作るプラグイン
- * とりあえず疎通確認まで。
 *******************************************/
+const version = 'v0.4.0'
 
 // パッケージ
 const line = require('@line/bot-sdk')
 const express = require('express')
 
-// 定数・変数
-let WEBSERVER_NAME = 'Nako3 LINE Bot'
-let debug = true
-const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET
-const LINE_ACCESS_TOKEN = process.env.LINE_ACCESS_TOKEN
-const config = {
-    channelSecret: LINE_CHANNEL_SECRET,
-    channelAccessToken: LINE_ACCESS_TOKEN
+// 秘密鍵（環境変数から取得）
+let config = {
+    channelSecret: process.env.LINE_CHANNEL_SECRET,
+    channelAccessToken: process.env.LINE_ACCESS_TOKEN
 }
 
 const PluginLinebot = {
@@ -30,32 +26,33 @@ const PluginLinebot = {
       sys.__v0['WEBサーバクエリ'] = {}
       sys.__server = null
       sys.__webapp = null
+      sys.__client = null
     }
   },
-  // @LINE Bot サーバ(Express)
+  // @LINEボット用サーバ(Express)
   'GETデータ': { type: 'const', value: '' }, // @GETでーた
   'POSTデータ': { type: 'const', value: '' }, // @POSTでーた
-  'LINEボット起動': { // @ポートPORTNOでLineBot用Expressサーバを起動して成功したら『LINEボット起動した時』を実行する // @らいんぼっときどう
+  'PORT番号': { type: 'const', value: process.env.PORT }, // @PORTばんごう
+  'LINEボット名': { type: 'const', value: 'なこぼっと' + version }, // @らいんぼっとめい
+  'LINEボット秘密鍵変更': { // @LINEボットのアクセストークンを変更する(LINEボット起動前に行う) // @らいんぼっとしーくれっときーへんこう
     type: 'func',
-    josi: [['の', 'で']],
+    josi: [['に', 'へ']],
+    pure: true,
+    fn: function (cnf, sys) {
+      config = cnf
+    },
+    return_none: true
+  },
+  'LINEボット起動': { // @ポート番号でLINEボット用にExpressサーバを起動して成功したら『LINEボット起動した時』を実行する // @らいんぼっときどう
+    type: 'func',
+    josi: ['で'],
     fn: function (portno, sys) {
       let app = express()
       let client = new line.Client(config)
       let server = app.listen(portno, () => {
         const pno = server.address().port
-        if (debug) {
-          console.log('[URL] http://localhost:' + pno + 'で' + WEBSERVER_NAME + '起動しました☆')
-          sys.__webapp.get('/', (req, res) => res.send(WEBSERVER_NAME + 'が起動しています☆'));//ブラウザ確認用
-          sys.__webapp.post('/webhook', line.middleware(config), (req, res) => {
-            res.status(200).end();//「Webhookイベントオブジェクト送信時にタイムアウトが発生しました」のエラー防止用
-            if (req.body.events.length === 0) {
-              console.log('検証イベント受信しました☆'); //疎通確認用
-              return;
-            } else {
-              console.log('イベント受信しました☆{改行}',req.body.events);//Webhookの中身の確認用
-            }
-          })
-        }
+        console.log('[URL] http://localhost:' + pno + 'で ' + sys.__v0['LINEボット名'] + ' 起動しました☆')
+        sys.__webapp.get('/', (req, res) => res.send(sys.__v0['LINEボット名'] + ' が起動しています☆')); //ブラウザ確認用
         const callback = sys.__v0['WEBサーバ:ONSUCCESS']
         if (callback) {callback(pno, sys)}
       })
@@ -70,14 +67,16 @@ const PluginLinebot = {
       return server
     }
   },
-  'LINEボット起動時': { // @ポートPORTNOでLINE Bot用Expressサーバを起動して成功したらCALLBACKを実行する // @らいんぼっときどうしたとき
+  'LINEボット起動時': { // @LINEボット用にExpressサーバを起動して成功したらCALLBACKを実行する // @らいんぼっときどうしたとき
     type: 'func',
-    josi: [['を'],['の', 'で']],
-    fn: function (callback, portno, sys) {
+    josi: ['を'],
+    fn: function (callback, sys) {
       sys.__v0['WEBサーバ:ONSUCCESS'] = callback
+      portno = sys.__v0['PORT番号']
       return sys.__exec('LINEボット起動', [portno, sys])
     }
   },
+
   // @イベント
   'LINEイベント': { type: 'const', value: '' }, // @らいんいべんと
   'LINEイベント受信時': { // @webhookにイベントがPOSTされた時 // @らいんいべんとじゅしんしたとき
@@ -85,19 +84,59 @@ const PluginLinebot = {
     josi: ['を'],
     fn: function (callback, sys) {
       sys.__webapp.post('/webhook', line.middleware(config), (req, res) => {
-        res.status(200).end();//「Webhookイベントオブジェクト送信時にタイムアウトが発生しました」のエラー防止用
+        res.status(200).end(); //エラー対策
         sys.__v0['LINEイベント'] = req.body.events
         if (sys.__v0['LINEイベント'].length === 0) {
           console.log('検証イベント受信しました☆'); //疎通確認用
           return;
         } else {
-          console.log('イベント受信しました☆{改行}',sys.__v0['LINEイベント']);//Webhookの中身の確認用
+          console.log('イベント受信しました☆\n',sys.__v0['LINEイベント']); //Webhookの中身の確認用
         }
         callbackServerFunc(callback, req, res, sys)
       })
     }
+  },
+  'プロフィール取得時': { // @ユーザーのプロフィール情報を取得 // @ぷろふぃーるしゅとくしたとき
+    type: 'func',
+    josi: [['を'],['の']],
+    fn: function (fn, userId, sys) {
+      sys.__client.getProfile(userId).then((prf) => {
+        sys.__v0['対象'] = prf
+        console.log('ユーザープロフィール取得しました☆\n',prf); //確認用
+        return fn(prf, sys)
+      })
+    }
+  },
+  // @メッセージオブジェクト
+  'LINEテキストメッセージ': { // @textのメッセージobjを作成する // @らいんてきすとめっせーじ
+    type: 'func',
+    josi: ['の'],
+    fn: function (txt, sys) {
+      return {type: 'text', text: txt}
+    }
+  },
+
+  // @メッセージ
+  'LINE返信': { // @返信先(replyToken)へ応答メッセージ(mes)を送信待機する（実際の送信は「LINEメッセージ送信」でまとめて行われる） // @らいんへんしん
+    type: 'func',
+    josi: [['に', 'へ'],['を']],
+    fn: function (replyToken, mes, sys) {
+      return sys.__client.replyMessage(replyToken, mes);
+    }
+  },
+  
+
+  'LINEメッセージ送信': { // @LINEメッセージをぷろみすで送信 // @らいんめっせーじそうしん
+    type: 'func',
+    josi: [['を', 'の']],
+    fn: function (promises, sys) {
+      Promise.all(promises).then((response) => {
+          console.log(`${response.length} 件のイベントを処理しました☆`);
+      });
+    }
   }
 }
+
 
 // GET/POST/PUT/DELETEのコールバック
 function callbackServerFunc (callback, req, res, sys) {
