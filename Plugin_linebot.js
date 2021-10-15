@@ -2,7 +2,7 @@
  * file: Plugin_linebot.js
  * なでしこ３でLINEボットを作るプラグイン
 *******************************************/
-const version = 'v0.4.0'
+const version = 'v0.6.0'
 
 // パッケージ
 const line = require('@line/bot-sdk')
@@ -108,24 +108,125 @@ const PluginLinebot = {
     }
   },
   // @メッセージオブジェクト
-  'LINEテキストメッセージ': { // @textのメッセージobjを作成する // @らいんてきすとめっせーじ
+  'LINEテキストメッセージ': { // @textのテキストメッセージobjを作成する // @らいんてきすとめっせーじ
     type: 'func',
     josi: ['の'],
-    fn: function (txt, sys) {
-      return {type: 'text', text: txt}
+    fn: function (text, sys) {
+      return {type: 'text', text: text}
+    }
+  },
+  'LINEスタンプメッセージ': { // @パッケージIDからスタンプIDのスタンプメッセージobjを作成する // @らいんすたんぷめっせーじ
+    type: 'func',
+    josi: [['から'],['の']],
+    fn: function (packageId, stickerId, sys) {
+      return {type: 'sticker', packageId: packageId, stickerId: stickerId}
+    }
+  },
+  'LINE画像メッセージ': { // @プレビュー画像とオリジナル画像の画像メッセージobjを作成する // @らいんがぞうめっせーじ
+    type: 'func',
+    josi: [['と'],['の']],
+    fn: function (preview, original, sys) {
+      return {type: 'image', originalContentUrl: original, previewImageUrl: preview}
+    }
+  },
+  'LINE動画メッセージ': { // @プレビュー画像と動画ファイルの動画メッセージobjを作成する // @らいんどうがめっせーじ
+    type: 'func',
+    josi: [['と'],['の']],
+    fn: function (preview, video, sys) {
+      return {type: 'video', originalContentUrl: video, previewImageUrl: preview}
+    }
+  },
+  'LINE音声メッセージ': { // @長さ（ミリ秒）で音声ファイルの音声メッセージobjを作成する // @らいんおんせいめっせーじ
+    type: 'func',
+    josi: [['で'],['の']],
+    fn: function (duration, audio, sys) {
+      return {type: 'audio', originalContentUrl: audio, duration: duration}
+    }
+  },
+  'LINE位置情報メッセージ': { // @タイトルと住所で[緯度,経度]の位置情報メッセージobjを作成する // @らいんいちじょうほうめっせーじ
+    type: 'func',
+    josi: [['と'],['で'],['の']],
+    fn: function (title, address, latlon, sys) {
+      return {type: 'location', title: title, address: address, latitude: latlon[0], longitude: latlon[1]}
+    }
+  },
+  'LINE二択メッセージ': { // @AとBでtextの確認メッセージobjを作成する // @らいんにたくめっせーじ
+    type: 'func',
+    josi: [['と'],['で'],['の']],
+    fn: function (A, B, text, sys) {
+      return {
+        type: 'template',
+        altText: "this is a confirm template",
+        template: {
+          type: 'confirm',
+          text: text,
+          actions: [
+            {
+              type: 'message',
+              label: A,
+              text: A
+            },
+            {
+              type: 'message',
+              label: B,
+              text: B
+            }
+          ]
+        }
+      }
     }
   },
 
-  // @メッセージ
-  'LINE返信': { // @返信先(replyToken)へ応答メッセージ(mes)を送信待機する（実際の送信は「LINEメッセージ送信」でまとめて行われる） // @らいんへんしん
+  // @メッセージ送信
+  'LINE返信': { // @返信先(replyToken)へ応答メッセージを送信待機する（実際の送信は「LINEメッセージ送信」でまとめて行われる） // @らいんへんしん
     type: 'func',
     josi: [['に', 'へ'],['を']],
     fn: function (replyToken, mes, sys) {
       return sys.__client.replyMessage(replyToken, mes);
     }
   },
-  
-
+  'LINEプッシュ': { // @送信先ID(userId)へ任意のタイミングでプッシュメッセージを送信する // @らいんぷっしゅ
+    type: 'func',
+    josi: [['に', 'へ'],['を']],
+    fn: function (id, mes, sys) {
+      sys.__client.pushMessage(id, mes);
+    }
+  },
+  'LINE複数プッシュ': { // @複数の送信先ID(userId)の配列へ任意のタイミングでプッシュメッセージを送信する。マルチキャストメッセージ // @らいんふくすうぷっしゅ
+    type: 'func',
+    josi: [['に', 'へ'],['を']],
+    fn: function (id, mes, sys) {
+      sys.__client.multicast(id, mes);
+    }
+  },
+  'LINE一斉プッシュ': { // 友達になっている全てのユーザーへ任意のタイミングでプッシュメッセージを送信する。ブロードキャストメッセージ // @らいんいっせいぷっしゅ
+    type: 'func',
+    josi: ['を'],
+    fn: function (mes, sys) {
+      sys.__client.broadcast(mes);
+    }
+  },
+  'LINEマルチキャスト送信': { // @複数の送信先ID(userId)の配列へ任意のタイミングでプッシュメッセージを送信する。マルチキャストメッセージ // @らいんまるちきゃすとそうしん
+    type: 'func',
+    josi: [['に', 'へ'],['を']],
+    fn: function (id, mes, sys) {
+      sys.__client.multicast(id, mes);
+    }
+  },
+  'LINEブロードキャスト送信': { // 友達になっている全てのユーザーへ任意のタイミングでプッシュメッセージを送信する。ブロードキャストメッセージ // @らいんぶろーどきゃすとそうしん
+    type: 'func',
+    josi: ['を'],
+    fn: function (mes, sys) {
+      sys.__client.broadcast(mes);
+    }
+  },
+  'LINEナローキャスト送信': { // 属性情報やオーディエンスを利用して複数のユーザーへ任意のタイミングでプッシュメッセージをメッセージを送信する。ナローキャストメッセージ // @らいんなろーきゃすとそうしん
+    type: 'func',
+    josi: [['を'],['と'],['で'],['の']],
+    fn: function (mes, recipient, filter, limit, sys) {
+      sys.__client.narrowcast(mes, recipient, filter, limit);
+    }
+  },
   'LINEメッセージ送信': { // @LINEメッセージをぷろみすで送信 // @らいんめっせーじそうしん
     type: 'func',
     josi: [['を', 'の']],
